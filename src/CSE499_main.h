@@ -3,7 +3,7 @@
  * @date 2022-04-14
  * @author Andrew W, Imani M-G, Daniel M
  * @brief CSE 499 self balancing robot project header
- * last updated 2022-04-21
+ * last updated 2022-05-01
  */
 
  #pragma once
@@ -15,6 +15,14 @@
 
 #define PI          ( 3.14159 )
 #define RAD_TO_DEG  ( 180.0 / (PI) )
+
+// for PID controller
+#define Kp  (10)
+#define Ki  (7)
+#define Kd  (0.75)
+
+// for watchdog
+#define TIMEOUT_MS  (5000)
 
 /** structure **/
 
@@ -33,6 +41,19 @@ typedef enum {
  * @brief sets up sensors
  */
 void setup();
+
+/**
+ * @brief PID controller used
+ */
+void controller();
+
+/**
+ * @brief change direction of motors or stop it;
+ *      stopping takes priority
+ * @param forwards 1 if forwards, 0 if backwards
+ * @param stop 1 to stop, 0 to continue; defaults to 0
+ */
+void setMotors(int forwards, int stop = 0);
 
 /**
  * @brief calculates the roll of the device

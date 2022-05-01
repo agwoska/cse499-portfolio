@@ -3,7 +3,7 @@
  * @date 2022-04-07
  * @author Andrew W, Imani M-G, Daniel M
  * @brief CSE 499 self balancing robot project implementation
- * last updated 2022-04-21
+ * last updated 2022-05-01
  */
 
 #include "mbed.h"
@@ -28,38 +28,32 @@ DigitalOut ml2(PE_11);
 DigitalOut mr1(PF_14);
 DigitalOut mr2(PE_13);
 
+Timer t;
+
+// safety elements
+Mutex mut;
+Watchdog &wd = Watchdog::get_instance();
+
 uint8_t tilt;
+double accel_data[3] = { 0 };
+double roll = 0.0;
 int prevRoll;
 long dt;
+int errorSum;
 
 /* implementation */
 
 int main() {
-    // setup variables to hold important data
-    double accel_data[3] = { 0 };
-    double roll = 0.0;
-
     setup();
-    // tiltF = 1;
-    // tiltB = 1;
     while (true) {
         // tilt = checkTilt();
-        ml1 = !ml1;
-        ml2 = !ml2;
-        mr1 = !mr1;
-        mr2 = !mr2;
         // check if I2C ready
         if ( !accel.isXYZReady() ) {
             ThisThread::sleep_for(2ms);
         }
         controller();
-        // get accelerometer output
-        //accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
-        // get tilt angle
-        //roll = calcRoll(accel_data[0], accel_data[2]);
-        //printf("Grav: %3.2f\t%3.2f\t%3.2f\t%3.2f\n\r", accel_data[0], accel_data[1], accel_data[2], roll);
-        // printf("%d\n\r", tilt);
-        //ThisThread::sleep_for(1s);
+        ThisThread::sleep_for(5ms);
+        wd.kick();
     }
 }
 
@@ -68,30 +62,42 @@ void setup() {
     accel.setBitDepth(MMA8452::BIT_DEPTH_12);
     accel.setDynamicRange(MMA8452::DYNAMIC_RANGE_2G);
     accel.setDataRate(MMA8452::RATE_100);
+    wd.start(TIMEOUT_MS);
     m1  = 1;
     ml1 = 0;
     ml2 = 0;
     mr1 = 0;
     mr2 = 0;
+    prevRoll = 0;
+    t.start();
+    dt = t.read_ms();
+    errorSum = 0;
     tilt = BALANCED;
 }
 
 
 void controller() {
     // get accelerometer output
+    while ( mut.trylock() ) {}
     accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
     // get tilt anglle
     roll = calcRoll(accel_data[0], accel_data[2]);
-    error = abs(roll) - 180; // current - target
+    int error = abs(roll) - 180; // current - target
     errorSum += error;
-    motorPower = Kp*error + Ki*errorSum*dt - Kd*(roll-prevRoll)/dt;
+    int motorPower = Kp*error + Ki*errorSum*dt - Kd*(roll-prevRoll)/dt;
     prevRoll = roll;
     // set motors
 }
     
     
-void setMotors(boolean forwards) {
-    if ( forwards ) {
+void setMotors(int forwards, int stop) {
+    if ( stop ) {
+        ml1 = 0;
+        ml2 = 0;
+        mr1 = 0;
+        mr2 = 0;
+    }
+    else if ( forwards ) {
         ml1 = 1;
         ml2 = 0;
         mr1 = 0;
@@ -126,4 +132,3 @@ tilt_pos_t checkTilt() {
     }
     return BALANCED;
 }
-
