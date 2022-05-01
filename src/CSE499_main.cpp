@@ -29,6 +29,8 @@ DigitalOut mr1(PF_14);
 DigitalOut mr2(PE_13);
 
 uint8_t tilt;
+int prevRoll;
+long dt;
 
 /* implementation */
 
@@ -50,13 +52,14 @@ int main() {
         if ( !accel.isXYZReady() ) {
             ThisThread::sleep_for(2ms);
         }
+        controller();
         // get accelerometer output
-        accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
+        //accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
         // get tilt angle
-        roll = calcRoll(accel_data[1], accel_data[2]);
-        printf("Grav: %3.2f\t%3.2f\t%3.2f\t%3.2f\n\r", accel_data[0], accel_data[1], accel_data[2], roll);
+        //roll = calcRoll(accel_data[0], accel_data[2]);
+        //printf("Grav: %3.2f\t%3.2f\t%3.2f\t%3.2f\n\r", accel_data[0], accel_data[1], accel_data[2], roll);
         // printf("%d\n\r", tilt);
-        ThisThread::sleep_for(1s);
+        //ThisThread::sleep_for(1s);
     }
 }
 
@@ -66,16 +69,45 @@ void setup() {
     accel.setDynamicRange(MMA8452::DYNAMIC_RANGE_2G);
     accel.setDataRate(MMA8452::RATE_100);
     m1  = 1;
-    ml1 = 1;
+    ml1 = 0;
     ml2 = 0;
     mr1 = 0;
-    mr2 = 1;
+    mr2 = 0;
     tilt = BALANCED;
 }
 
 
-double calcRoll(double y, double z) {
-    return atan2(y,z) * RAD_TO_DEG;
+void controller() {
+    // get accelerometer output
+    accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
+    // get tilt anglle
+    roll = calcRoll(accel_data[0], accel_data[2]);
+    error = abs(roll) - 180; // current - target
+    errorSum += error;
+    motorPower = Kp*error + Ki*errorSum*dt - Kd*(roll-prevRoll)/dt;
+    prevRoll = roll;
+    // set motors
+}
+    
+    
+void setMotors(boolean forwards) {
+    if ( forwards ) {
+        ml1 = 1;
+        ml2 = 0;
+        mr1 = 0;
+        mr2 = 1;
+    }
+    else {
+        ml1 = 0;
+        ml2 = 1;
+        mr1 = 1;
+        mr2 = 0;
+    }
+}
+
+
+double calcRoll(double x, double z) {
+    return atan2(x,z) * RAD_TO_DEG;
 }
 
 
