@@ -87,6 +87,19 @@ void controller() {
     int motorPower = Kp*error + Ki*errorSum*dt - Kd*(roll-prevRoll)/dt;
     prevRoll = roll;
     // set motors
+    if ( abs(roll) > 175 ) {
+        // do nothing
+    }
+    else if ( roll > 0 ) {
+        setMotors(1, 0);
+        ThisThread::sleep_for(5ms);
+        setMotors(1, 1);
+    }
+    else {
+        setMotors(0, 0);
+        ThisThread::sleep_for(5ms);
+        setMotors(0, 1);
+    }
 }
     
     
