@@ -3,7 +3,7 @@
  * @date 2022-04-07
  * @author Andrew W, Imani M-G, Daniel M
  * @brief CSE 499 self balancing robot project implementation
- * last updated 2022-05-01
+ * last updated 2022-05-10
  */
 
 #include "mbed.h"
@@ -52,7 +52,7 @@ int main() {
             ThisThread::sleep_for(2ms);
         }
         controller();
-        ThisThread::sleep_for(5ms);
+        ThisThread::sleep_for(10ms);
         wd.kick();
     }
 }
@@ -76,30 +76,48 @@ void setup() {
 }
 
 
+chrono::milliseconds controller_helper(int roll) {
+    int r = abs( roll );
+    if ( 170 < r ) {
+        return 200ms;
+    }
+    if ( 165 < r ) {
+        return 300ms;
+    }
+    if( 160 < r ) {
+        return 400ms;
+    }
+    return 500ms;
+}
+
+
 void controller() {
     // get accelerometer output
-    while ( mut.trylock() ) {}
+    mut.lock();
     accel.readXYZGravity(&accel_data[0], &accel_data[1], &accel_data[2]);
+    mut.unlock();
     // get tilt anglle
     roll = calcRoll(accel_data[0], accel_data[2]);
     int error = abs(roll) - 180; // current - target
     errorSum += error;
+    // dt = t.read_ms() - dt;
     int motorPower = Kp*error + Ki*errorSum*dt - Kd*(roll-prevRoll)/dt;
     prevRoll = roll;
     // set motors
-    if ( abs(roll) > 175 ) {
-        // do nothing
+    if ( abs(roll) > 178 ) {
+        // do nothing, its balanced
     }
-    else if ( roll > 0 ) {
+    else if ( motorPower < 0 ) { // forwards
         setMotors(1, 0);
-        ThisThread::sleep_for(5ms);
+        ThisThread::sleep_for( controller_helper(roll) );
         setMotors(1, 1);
     }
-    else {
+    else {  // backwards
         setMotors(0, 0);
-        ThisThread::sleep_for(5ms);
+        ThisThread::sleep_for( controller_helper(roll) );
         setMotors(0, 1);
     }
+    printf("motor: %d\troll: %3.1f\n\r", motorPower, roll);
 }
     
     
@@ -122,11 +140,12 @@ void setMotors(int forwards, int stop) {
         mr1 = 1;
         mr2 = 0;
     }
+    printf("%d\t%d\t%d\t%d\n\r", ml1.read(), ml2.read(), mr1.read(), mr2.read());
 }
 
 
 double calcRoll(double x, double z) {
-    return atan2(x,z) * RAD_TO_DEG;
+    return atan2(-x,z) * RAD_TO_DEG;
 }
 
 
